@@ -1,0 +1,53 @@
+Bot 4 Checkout 
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import time
+
+class CheckoutBot:
+    def __init__(self):
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        self.driver = webdriver.Chrome(options=chrome_options)
+        self.payment_details = {
+            "card_number": "4111111111111111",
+            "expiry": "12/26",
+            "cvv": "123",
+            "name": "John Doe"
+        }
+
+    def complete_checkout(self, session_data):
+        self.driver.get(session_data["session_url"])
+        time.sleep(2)
+
+        # Log in with account
+        account = session_data["account"]
+        self.driver.find_element_by_id("email").send_keys(account["email"])
+        self.driver.find_element_by_id("password").send_keys(account["password"])
+        self.driver.find_element_by_css_selector("button[type='submit']").click()
+        time.sleep(2)
+
+        # Enter payment details
+        self.driver.find_element_by_id("cardNumber").send_keys(self.payment_details["card_number"])
+        self.driver.find_element_by_id("expiry").send_keys(self.payment_details["expiry"])
+        self.driver.find_element_by_id("cvv").send_keys(self.payment_details["cvv"])
+        self.driver.find_element_by_id("cardholderName").send_keys(self.payment_details["name"])
+        self.driver.find_element_by_css_selector("button[type='submit']").click()
+        time.sleep(3)
+
+        if "order confirmed" in self.driver.page_source.lower():
+            print(f"Checkout completed for {account['email']}")
+            return True
+        return False
+
+    def run(self):
+        while True:
+            session_data = consume_message("checkout_queue")
+            if session_data:
+                if self.complete_checkout(session_data):
+                    print("Purchase successful")
+            time.sleep(2)
+
+if __name__ == "__main__":
+    bot = CheckoutBot()
+    bot.run()
