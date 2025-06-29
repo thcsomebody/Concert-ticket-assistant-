@@ -1,0 +1,74 @@
+Bot 3 Queue Holder 
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import requests
+import time
+
+class QueueHandler:
+    def __init__(self):
+        self.captcha_api_key = os.getenv("CAPTCHA_API_KEY")
+        self.bright_data_username = os.getenv("BRIGHT_DATA_USERNAME")
+        self.bright_data_password = os.getenv("BRIGHT_DATA_PASSWORD")
+        chrome_options = Options()
+        chrome_options.add_argument(f"--proxy-server=http://{self.bright_data_username}:{self.bright_data_password}@brd.superproxy.io:22225")
+        self.driver = webdriver.Chrome(options=chrome_options)
+
+    def solve_captcha(self, site_key, page_url):
+        # Hypothetical 2Captcha API integration
+        response = requests.post(
+            "http://2captcha.com/in.php",
+            data={
+                "key": self.captcha_api_key,
+                "method": "userrecaptcha",
+                "googlekey": site_key,
+                "pageurl": page_url
+            }
+        )
+        captcha_id = response.text.split("|")[1]
+        for _ in range(10):
+            result = requests.get(f"http://2captcha.com/res.php?key={self.captcha_api_key}&action=get&id={captcha_id}")
+            if "CAPCHA_NOT_READY" not in result.text:
+                return result.text.split("|")[1]
+            time.sleep(5)
+        return None
+
+    def handle_queue(self, account, ticket_url):
+        self.driver.get(ticket_url)
+        time.sleep(3)
+
+        # Check for CAPTCHA
+        if "captcha" in self.driver.page_source.lower():
+            site_key = self.driver.find_element_by_class_name("g-recaptcha").get_attribute("data-sitekey")
+            captcha_solution = self.solve_captcha(site_key, ticket_url)
+            if captcha_solution:
+                self.driver.execute_script(f"document.getElementById('g-recaptcha-response').innerHTML='{captcha_solution}';")
+                self.driver.find_element_by_css_selector("button[type='submit']").click()
+                time.sleep(2)
+
+        # Navigate queue
+        if "queue" in self.driver.current_url:
+            while "queue" in self.driver.current_url:
+                time.sleep(5)  # Wait for queue to progress
+            session_data = {
+                "account": account,
+                "session_url": self.driver.current_url
+            }
+            publish_message("checkout_queue", session_data)
+            return session_data
+        return None
+
+    def run(self):
+        while True:
+            ticket_data = consume_message("ticket_queue")
+            if ticket_data:
+                account = consume_message("account_queue")
+                if account:
+                    session = self.handle_queue(account, ticket_data["event_url"])
+                    if session:
+                        print(f"Queue passed for {account['email']}")
+            time.sleep(2)
+
+if __name__ == "__main__":
+    bot = QueueHandler()
+    bot.run()
