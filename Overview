@@ -1,0 +1,52 @@
+
+
+
+System Overview
+Bot 1: Account Creator - Generates accounts on the ticketing platform with unique email addresses and credentials.
+Bot 2: Ticket Scanner - Monitors ticketing sites (e.g., Ticketmaster) for ticket availability or presale events.
+Bot 3: Queue Handler - Manages the ticketing queue, solves CAPTCHAs, and mask requests.
+Bot 4: Checkout Bot - Completes the purchase process once tickets are secured.
+
+All bots communicate via a Redis queue to pass data (e.g., account credentials, ticket availability, session tokens).
+
+import redis
+import json
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    decode_responses=True
+)
+
+def publish_message(queue_name, message):
+    redis_client.lpush(queue_name, json.dumps(message))
+
+def consume_message(queue_name):
+    message = redis_client.brpop(queue_name, timeout=30)
+    if message:
+        return json.loads(message[1])
+    return None
+
+Set up:
+
+pip install selenium requests redis faker python-dotenv
+
+Install Chrime driver for Selenium
+
+Set up .env for credentials 
+
+BRIGHT_DATA_USERNAME=your_brightdata_username
+BRIGHT_DATA_PASSWORD=your_brightdata_password
+CAPTCHA_API_KEY=your_captcha_service_api_key
+TICKETMASTER_EMAIL=base_email@example.com
+TICKETMASTER_PASSWORD=your_password
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+
+
+
