@@ -1,0 +1,39 @@
+Bot 2 Ticket Presale & Availablity Scanner 
+
+import requests
+from bs4 import BeautifulSoup
+import time
+
+class TicketScanner:
+    def __init__(self):
+        self.target_url = "https://www.ticketmaster.com/event/12345"  # Example event URL
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124"
+        }
+
+    def scan_tickets(self):
+        response = requests.get(self.target_url, headers=self.headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+        availability = soup.find("div", class_="availability-status")
+        
+        if availability and ("available" in availability.text.lower() or "presale" in availability.text.lower()):
+            ticket_data = {
+                "event_url": self.target_url,
+                "status": availability.text.strip(),
+                "timestamp": time.time()
+            }
+            publish_message("ticket_queue", ticket_data)
+            return ticket_data
+        return None
+
+    def run(self):
+        while True:
+            ticket_info = self.scan_tickets()
+            if ticket_info:
+                print(f"Tickets found: {ticket_info['status']}")
+            time.sleep(5)  # Poll every 5 seconds
+
+if __name__ == "__main__":
+    bot = TicketScanner()
+    bot.run()
+
