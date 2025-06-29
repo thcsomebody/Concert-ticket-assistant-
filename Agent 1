@@ -1,0 +1,55 @@
+Bot 1 Account Creator: 
+
+from faker import Faker
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import time
+import uuid
+
+class AccountCreator:
+    def __init__(self):
+        self.fake = Faker()
+        self.base_email = os.getenv("TICKETMASTER_EMAIL")
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        self.driver = webdriver.Chrome(options=chrome_options)
+
+    def generate_account(self):
+        email = f"{self.base_email.split('@')[0]}+{uuid.uuid4()}@example.com"
+        password = self.fake.password(length=12)
+        first_name = self.fake.first_name()
+        last_name = self.fake.last_name()
+
+        self.driver.get("https://www.ticketmaster.com/account/register")
+        time.sleep(2)
+
+        self.driver.find_element_by_id("email").send_keys(email)
+        self.driver.find_element_by_id("password").send_keys(password)
+        self.driver.find_element_by_id("firstName").send_keys(first_name)
+        self.driver.find_element_by_id("lastName").send_keys(last_name)
+        self.driver.find_element_by_css_selector("button[type='submit']").click()
+        time.sleep(3)
+
+        if "account created" in self.driver.page_source.lower():
+            account_data = {
+                "email": email,
+                "password": password,
+                "first_name": first_name,
+                "last_name": last_name
+            }
+            publish_message("account_queue", account_data)
+            return account_data
+        return None
+
+    def run(self):
+        while True:
+            account = self.generate_account()
+            if account:
+                print(f"Created account: {account['email']}")
+            time.sleep(10)  # Avoid rate-limiting
+
+if __name__ == "__main__":
+    bot = AccountCreator()
+    bot.run()
+
+
